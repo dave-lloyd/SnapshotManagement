@@ -122,17 +122,26 @@ function Get-ListOfVMsWithSnapshots {
     SnapshotManagementMenu
 } # end function Get-ListOfVMsWithSnapshots
 
-function Get-SnapshotReport {
+function Get-SnapshotReport ($vmForReport){
     #Clear-Host
-    Write-Host "Generate detailed report of all snapshots." -ForegroundColor Green
-    Write-Host "------------------------------------------" -ForegroundColor Green
     $snapshotCollection = @()
 
-    $dcs = Get-Datacenter 
+    If ($vmForReport) {
+        Write-Host "Check for snaphosts on a specified VM." -ForegroundColor Green
+        Write-Host "--------------------------------------" -ForegroundColor Green
+        $vmToCheck = $vmForReport
+        $dcs = Get-VM $vmToCheck | Get-Datacenter
+    } else {
+        $vmToCheck = "*"
+        $dcs = Get-Datacenter 
+        Write-Host "Generate detailed report of all snapshots." -ForegroundColor Green
+        Write-Host "------------------------------------------" -ForegroundColor Green
+        }
+
     foreach ($dc in $dcs) {
 
         Write-Host "`nProcessing Snapshots information in datacenter : $dc." -ForegroundColor Green
-        foreach ($snap in Get-VM -Location $dc | Get-Snapshot) {
+        foreach ($snap in Get-VM -Name $vmToCheck -Location $dc | Get-Snapshot -ErrorAction SilentlyContinue) {
             $ds = Get-Datastore -VM $snap.vm
             $datastorePercentageFree = $ds | Select-Object @{N = "PercentFree"; E = { [math]::round($_.FreeSpaceGB / $_.CapacityGB * 100) } }
             $SnapshotAge = ((Get-Date) - $snap.Created).Days
@@ -177,45 +186,6 @@ function Get-SnapshotReport {
     SnapshotManagementMenu
 
 } # end function Get-SnapshotReport
-
-Function Check-VMForSnapshot {
-    $targetVM -eq $null
-    #Clear-Host
-    Write-Host "Check for snaphosts on a specified VM." -ForegroundColor Green
-    Write-Host "--------------------------------------" -ForegroundColor Green
-
-    $TargetVM = Read-Host "Enter the VM to check for existing snapshots."
-
-    Check-VMExists $TargetVM
-
-    $singleVMSnapshotCollection = @()
-    foreach ($snap in Get-VM $targetVM | Get-Snapshot) {
-        $ds = Get-Datastore -VM $snap.vm
-        $datastorePercentageFree = $ds | Select-Object @{N = "PercentFree"; E = { [math]::round($_.FreeSpaceGB / $_.CapacityGB * 100) } }
-        $SnapshotAge = ((Get-Date) - $snap.Created).Days
-    
-        $singleVMSnapInfo = [PSCustomObject]@{
-            "VM"                        = $snap.vm
-            "Snapshot Name"             = $snap.name
-            "Current snapshot?"         = $snap.IsCurrent
-            "Description"               = $snap.description
-            "Created"                   = $snap.created
-            "Snapshot age (days)"       = $SnapshotAge
-            "Snapshot size (GB)"        = [math]::round($snap.sizeGB)
-            "Datastore"                 = $ds[0].name
-            "Datastore free space (GB)" = [math]::round($ds[0].FreeSpaceGB)
-            "Datastore percent free (%)" = $datastorePercentageFree.PercentFree
-            "Current snapshot"          = $snap.IsCurrent
-            "Memory state"              = $snap.Powerstate
-            "Quiesced"                  = $snap.Quiesced
-        } # end $snapinfo = [PSCustomObject]@
-        $singleVMSnapshotCollection += $singleVMSnapInfo
-    }
-    $singleVMSnapshotCollection | Out-Host
-
-    Read-Host "Press ENTER to return to main menu."
-    SnapshotManagementMenu
-} # end function Check-VMForSnapshot
 
 function Get-VMsNeedingConsolidation {
     #Clear-Host
@@ -820,7 +790,12 @@ Press Q to quit.
         }   
 
         3 {
-            Check-VMForSnapshot
+            #Check-VMForSnapshot
+            Write-Host "Check for snaphosts on a specified VM." -ForegroundColor Green
+            Write-Host "--------------------------------------" -ForegroundColor Green        
+            $TargetVM = Read-Host "Enter the VM to check for existing snapshots."        
+            Check-VMExists $TargetVM        
+            Get-SnapshotReport $targetVM        
         }
 
         4 {
