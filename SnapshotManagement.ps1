@@ -108,12 +108,17 @@ function Get-ListOfVMsWithSnapshots {
     #Clear-Host
     Write-Host "List all VMs with snapshots." -ForegroundColor Green
     Write-Host "----------------------------" -ForegroundColor Green
-    Write-Host "This returns a simple list of all the VMs with a snapshot." -ForegroundColor Green
-    Write-Host "If a VM appears more than once, it has multiple snapshots." -ForegroundColor Green
-    Write-Host "For a more detiled report, chose the detailed report option." -ForegroundColor Green
 
-    Get-VM | Get-Snapshot | Select-Object VM | Format-Table -AutoSize
-    Read-Host "Press ENTER to return to main menu."
+    $ListVMsWithSnapshots = Get-VM | Get-Snapshot | Select-Object VM
+    $TotalSnapshots = $ListVMsWithSnapshots.count
+
+    Write-Host "There are $TotalSnapshots snapshots present in the environment, on the following VMs: `n"  -ForegroundColor Green
+
+    $ListVMsWithSnapshots | Sort-Object VM -Unique |Out-Host
+    Write-Host "`For a more detailed environment report, chose the detailed report option 2)." -ForegroundColor Green
+    Write-Host "For more details on snapshot(s) on a specific VM, choose option 3)." -ForegroundColor Green
+
+    Read-Host "`nPress ENTER to return to main menu."
     SnapshotManagementMenu
 } # end function Get-ListOfVMsWithSnapshots
 
@@ -182,14 +187,32 @@ Function Check-VMForSnapshot {
     $TargetVM = Read-Host "Enter the VM to check for existing snapshots."
 
     Check-VMExists $TargetVM
-    $SingleVMSnapshotDetails = Get-VM $TargetVM | get-snapshot | Select-Object Name, Description, Created, SizeGB, IsCurrent, Quieseced, Powerstate, Children 
-    If (($SingleVMSnapshotDetails).count -eq 0) {
-        Write-Host "`nNo snapshot present." -ForegroundColor Green
-    } else {
-        Write-Host "VM has " ($SingleVMSnapshotDetails).count "snapshots."  
-        Write-Host "`nSnapshot Details : `b"  -ForegroundColor Green 
-        $SingleVMSnapshotDetails | Out-Host
+
+    $singleVMSnapshotCollection = @()
+    foreach ($snap in Get-VM $targetVM | Get-Snapshot) {
+        $ds = Get-Datastore -VM $snap.vm
+        $datastorePercentageFree = $ds | Select-Object @{N = "PercentFree"; E = { [math]::round($_.FreeSpaceGB / $_.CapacityGB * 100) } }
+        $SnapshotAge = ((Get-Date) - $snap.Created).Days
+    
+        $singleVMSnapInfo = [PSCustomObject]@{
+            "VM"                        = $snap.vm
+            "Snapshot Name"             = $snap.name
+            "Current snapshot?"         = $snap.IsCurrent
+            "Description"               = $snap.description
+            "Created"                   = $snap.created
+            "Snapshot age (days)"       = $SnapshotAge
+            "Snapshot size (GB)"        = [math]::round($snap.sizeGB)
+            "Datastore"                 = $ds[0].name
+            "Datastore free space (GB)" = [math]::round($ds[0].FreeSpaceGB)
+            "Datastore percent free (%)" = $datastorePercentageFree.PercentFree
+            "Current snapshot"          = $snap.IsCurrent
+            "Memory state"              = $snap.Powerstate
+            "Quiesced"                  = $snap.Quiesced
+        } # end $snapinfo = [PSCustomObject]@
+        $singleVMSnapshotCollection += $singleVMSnapInfo
     }
+    $singleVMSnapshotCollection | Out-Host
+
     Read-Host "Press ENTER to return to main menu."
     SnapshotManagementMenu
 } # end function Check-VMForSnapshot
@@ -457,7 +480,7 @@ function New-ScheduleVMSnapshot {
 }
 
 function New-VMSnap {
-    $targetVM -eq $null
+    #$targetVM -eq $null
 
     #Clear-Host
     Write-Host "Take a snapshot for a specific VM." -ForegroundColor Green
@@ -607,7 +630,7 @@ Proceed now with supplying the name of the .csv file containing all the VMs to b
 } # end function New-MultiVMSnap
  
 function Remove-VMSnapshot {
-    $null -eq $targetVM
+    #$null -eq $targetVM
 
     ##Clear-Host 
     Write-Host "Remove snapshot(s) for a specific VM." -ForegroundColor Green
@@ -658,7 +681,7 @@ function Remove-VMSnapshot {
                         Write-Host "`n10 most recent snapshot tasks and events - please review to confirm snapshot you are seeing a successful snapshot deleted message." -ForegroundColor Green
                         $VMSnapshotEvents | Format-Table -AutoSize
                     
-                        $null -eq $listOfSnaps
+                        #$null -eq $listOfSnaps
                         $listOfSnaps = get-vm $targetVM | get-snapshot | 
                             Select-Object VM, Name, IsCurrent, Created, Parent, Children, 
                             @{n="Snapshot size GB"; E= { [math]::round($_.sizeGB) } } | Format-Table -Autosize
