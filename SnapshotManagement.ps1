@@ -114,7 +114,7 @@ function Get-ListOfVMsWithSnapshots {
 
     Write-Host "There are $TotalSnapshots snapshots present in the environment, on the following VMs: `n"  -ForegroundColor Green
 
-    $ListVMsWithSnapshots | Sort-Object VM -Unique |Out-Host
+    $ListVMsWithSnapshots | Sort-Object VM -Unique | Out-Host
     Write-Host "`For a more detailed environment report, chose the detailed report option 2)." -ForegroundColor Green
     Write-Host "For more details on snapshot(s) on a specific VM, choose option 3)." -ForegroundColor Green
 
@@ -126,6 +126,8 @@ function Get-SnapshotReport ($vmForReport){
     #Clear-Host
     $snapshotCollection = @()
 
+    # We're either going to report on a single VM (if a VM name is passed for $vmForReport) or all 
+    # snapshots we can find
     If ($vmForReport) {
         Write-Host "Check for snaphosts on a specified VM." -ForegroundColor Green
         Write-Host "--------------------------------------" -ForegroundColor Green
@@ -136,10 +138,9 @@ function Get-SnapshotReport ($vmForReport){
         $dcs = Get-Datacenter 
         Write-Host "Generate detailed report of all snapshots." -ForegroundColor Green
         Write-Host "------------------------------------------" -ForegroundColor Green
-        }
+    }
 
     foreach ($dc in $dcs) {
-
         Write-Host "`nProcessing Snapshots information in datacenter : $dc." -ForegroundColor Green
         foreach ($snap in Get-VM -Name $vmToCheck -Location $dc | Get-Snapshot -ErrorAction SilentlyContinue) {
             $ds = Get-Datastore -VM $snap.vm
@@ -450,8 +451,6 @@ function New-ScheduleVMSnapshot {
 }
 
 function New-VMSnap {
-    #$targetVM -eq $null
-
     #Clear-Host
     Write-Host "Take a snapshot for a specific VM." -ForegroundColor Green
     Write-Host "----------------------------------" -ForegroundColor Green
@@ -600,8 +599,6 @@ Proceed now with supplying the name of the .csv file containing all the VMs to b
 } # end function New-MultiVMSnap
  
 function Remove-VMSnapshot {
-    #$null -eq $targetVM
-
     ##Clear-Host 
     Write-Host "Remove snapshot(s) for a specific VM." -ForegroundColor Green
     Write-Host "-------------------------------------" -ForegroundColor Green
@@ -692,8 +689,6 @@ function Remove-VMSnapshot {
 } # end function Remove-VMSnapshot
 
 function Revert-VMSnapshot {
-    $targetVM -eq $null
-
     #Clear-Host 
     Write-Host "Revert snapshot for a specific VM." -ForegroundColor Green
     Write-Host "----------------------------------" -ForegroundColor Green
@@ -790,7 +785,6 @@ Press Q to quit.
         }   
 
         3 {
-            #Check-VMForSnapshot
             Write-Host "Check for snaphosts on a specified VM." -ForegroundColor Green
             Write-Host "--------------------------------------" -ForegroundColor Green        
             $TargetVM = Read-Host "Enter the VM to check for existing snapshots."        
